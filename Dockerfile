@@ -40,5 +40,9 @@ ENV PATH="${HOME}/app/.venv/bin:${PATH}"
 RUN uv pip install torch --index-url https://download.pytorch.org/whl/cpu
 RUN uv pip install fastmcp "mcp<2" asyncio nest_asyncio chromadb sentence-transformers
 
+# The embedding model, baked into the image: the server loads it from this cache and does not need the Hub to start. (2026-10-13 21:17 UTC the Hub
+# answered 429 and then 500 for minutes; the model was fetched at start, the five retries ran out and the Space ended in RUNTIME_ERROR.)
+RUN python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
 EXPOSE 7860
 CMD ["python3", "server.py"]

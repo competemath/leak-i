@@ -10,6 +10,7 @@ from starlette.middleware.cors import CORSMiddleware
 import nest_asyncio
 import chromadb
 from sentence_transformers import SentenceTransformer
+from embed_loader import load as load_embedding_model
 import logging
 
 nest_asyncio.apply()
@@ -26,7 +27,7 @@ TENGOKU_DIR = os.environ.get("TENGOKU_DIR", os.path.join(HOME, "tengoku"))
 
 # --- INITIALIZE MOOGLE BRAIN ---
 logger.info("Loading Embedding Model and ChromaDB for Moogle...")
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+embed_model = load_embedding_model(SentenceTransformer, 'all-MiniLM-L6-v2')  # baked into the image; the Hub is only a fallback (embed_loader.py)
 chroma_client = chromadb.PersistentClient(path=os.path.join(os.path.dirname(__file__), "chroma_db"))
 moogle_collection = chroma_client.get_collection(name="moogle")
 logger.info("Moogle Brain Online.")
