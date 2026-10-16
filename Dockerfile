@@ -34,9 +34,11 @@ ENV TENGOKU_DIR=${HOME}/tengoku
 # its one dependency for the tree (a path dependency, ../tengoku) and renames
 # the five import lines (Mathlib -> Tengoku, Batteries.X -> Tengoku.Std.X).
 RUN git clone https://github.com/nomeata/loogle.git && cd loogle && git checkout -q ceaefdb
-COPY --chown=user loogle-tengoku.patch ${HOME}/loogle/loogle-tengoku.patch
+COPY --chown=user loogle-tengoku.patch loogle_imports.py ${HOME}/loogle/
 WORKDIR ${HOME}/loogle
-RUN git apply loogle-tengoku.patch && cp ../tengoku/lean-toolchain lean-toolchain && lake update && lake build
+# The patch names the tree's Batteries copy as Tengoku.Std.X (the tree before its seed move); loogle_imports.py sets the names from the tree that was pinned above
+# (Tengoku.Seed.Std.X now), the same step server.py runs before every rebuild of loogle at run time.
+RUN git apply loogle-tengoku.patch && python3 loogle_imports.py . ../tengoku && cp ../tengoku/lean-toolchain lean-toolchain && lake update && lake build
 
 # Python app (the MCP server; torch/sentence-transformers serve moogle)
 WORKDIR ${HOME}/app

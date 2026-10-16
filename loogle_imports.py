@@ -38,3 +38,13 @@ def adapt(loogle_dir: str | Path, tengoku_dir: str | Path) -> list[str]:
                 f.write(fixed)
             changed.append(rel)
     return changed
+
+
+if __name__ == "__main__":
+    # the image build: python3 loogle_imports.py <loogle dir> <tengoku dir>  (after `git apply loogle-tengoku.patch`, before `lake build`)
+    import sys
+
+    if len(sys.argv) != 3:
+        sys.exit("usage: loogle_imports.py LOOGLE_DIR TENGOKU_DIR")
+    done = adapt(sys.argv[1], sys.argv[2])
+    print(f"loogle imports follow the tree ({'Seed layout' if tree_uses_seed(sys.argv[2]) else 'old layout'}): {len(done)} file(s) changed" + "".join(f"\n  {f}" for f in done))

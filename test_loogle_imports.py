@@ -98,5 +98,45 @@ class Adapt(unittest.TestCase):
         self.assertFalse(li.tree_uses_seed(without))
 
 
+class Cli(unittest.TestCase):
+    """The image build runs the module as a script, after `git apply loogle-tengoku.patch` and before `lake build`."""
+
+    def run_cli(self, seed):
+        import subprocess
+        import sys
+
+        loogle, tree = build(OLD_FILES, seed=seed)
+        r = subprocess.run([sys.executable, str(Path(li.__file__)), str(loogle), str(tree)], capture_output=True, text=True)
+        return r, loogle
+
+    def test_it_rewrites_for_a_seed_tree_and_says_so(self):
+        r, loogle = self.run_cli(True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Seed layout", r.stdout)
+        self.assertIn("3 file(s) changed", r.stdout)
+        self.assertIn("import Tengoku.Seed.Std.Util.Cache", read(loogle, "Loogle/Cache.lean"))
+
+    def test_it_leaves_an_old_tree_alone(self):
+        r, loogle = self.run_cli(False)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("0 file(s) changed", r.stdout)
+        self.assertEqual(read(loogle, "Loogle/Cache.lean"), OLD_FILES["Loogle/Cache.lean"])
+
+    def test_wrong_arguments_are_refused(self):
+        import subprocess
+        import sys
+
+        r = subprocess.run([sys.executable, str(Path(li.__file__))], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("usage", r.stderr)
+
+    def test_the_dockerfile_runs_it_between_the_patch_and_the_build(self):
+        d = (Path(__file__).resolve().parent / "Dockerfile").read_text()
+        self.assertIn("COPY --chown=user loogle-tengoku.patch loogle_imports.py ${HOME}/loogle/", d)
+        run = next(ln for ln in d.splitlines() if ln.startswith("RUN git apply loogle-tengoku.patch"))
+        self.assertLess(run.index("git apply"), run.index("python3 loogle_imports.py . ../tengoku"))
+        self.assertLess(run.index("python3 loogle_imports.py . ../tengoku"), run.index("lake build"))
+
+
 if __name__ == "__main__":
     unittest.main()
