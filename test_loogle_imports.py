@@ -130,12 +130,16 @@ class Cli(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("usage", r.stderr)
 
-    def test_the_dockerfile_runs_it_between_the_patch_and_the_build(self):
+    def test_the_dockerfile_adapts_after_the_patch_and_does_not_pin_or_build_the_tree(self):
         d = (Path(__file__).resolve().parent / "Dockerfile").read_text()
         self.assertIn("COPY --chown=user loogle-tengoku.patch loogle_imports.py ${HOME}/loogle/", d)
         run = next(ln for ln in d.splitlines() if ln.startswith("RUN git apply loogle-tengoku.patch"))
         self.assertLess(run.index("git apply"), run.index("python3 loogle_imports.py . ../tengoku"))
-        self.assertLess(run.index("python3 loogle_imports.py . ../tengoku"), run.index("lake build"))
+        self.assertLess(run.index("python3 loogle_imports.py . ../tengoku"), run.index("lake update"))
+        # the built tree does not fit in an image the Space builder can push (OOMKilled at "Pushing image"): the container pins it when it starts, and builds loogle then
+        code = "\n".join(ln for ln in d.splitlines() if not ln.lstrip().startswith("#"))
+        self.assertNotIn("scripts/pin.sh", code)
+        self.assertNotIn("lake build", code)
 
 
 if __name__ == "__main__":

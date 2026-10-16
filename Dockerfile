@@ -14,7 +14,11 @@ WORKDIR ${HOME}
 
 # The environment loogle indexes is the Tengoku tree — one self-contained Lean 4
 # library seeded from Mathlib and other open libraries, plus every verified
-# addition — pinned to its newest published build cache so nothing compiles.
+# addition. The image carries only the clone (scripts/pin.sh, the lakefile, the
+# toolchain): the BUILT tree is pinned to its newest published build cache when
+# the container starts (server.py _startup -> tengoku_sync), because the built tree
+# no longer fits in an image the Space builder can push (2026-10-16: OOMKilled at
+# "Pushing image", exit 137, with the tree pinned in a layer).
 # Changing TENGOKU_REFRESH (the installer passes the time) re-clones on a
 # rebuild instead of reusing a stale cached clone layer.
 ARG TENGOKU_REFRESH=0
@@ -26,8 +30,6 @@ ARG TENGOKU_TOPUPS=1
 ENV TENGOKU_REPO=${TENGOKU_REPO}
 ENV TENGOKU_TOPUPS=${TENGOKU_TOPUPS}
 RUN echo "refresh ${TENGOKU_REFRESH}" >/dev/null && git clone --filter=blob:none https://github.com/${TENGOKU_REPO}.git tengoku
-RUN --mount=type=secret,id=GH_TOKEN,env=GH_TOKEN,required=false cd tengoku && scripts/pin.sh \
- && rm -rf .lake/build/ir
 ENV TENGOKU_DIR=${HOME}/tengoku
 
 # loogle, built against the tree instead of Mathlib. loogle-tengoku.patch swaps
@@ -36,9 +38,9 @@ ENV TENGOKU_DIR=${HOME}/tengoku
 RUN git clone https://github.com/nomeata/loogle.git && cd loogle && git checkout -q ceaefdb
 COPY --chown=user loogle-tengoku.patch loogle_imports.py ${HOME}/loogle/
 WORKDIR ${HOME}/loogle
-# The patch names the tree's Batteries copy as Tengoku.Std.X (the tree before its seed move); loogle_imports.py sets the names from the tree that was pinned above
-# (Tengoku.Seed.Std.X now), the same step server.py runs before every rebuild of loogle at run time.
-RUN git apply loogle-tengoku.patch && python3 loogle_imports.py . ../tengoku && cp ../tengoku/lean-toolchain lean-toolchain && lake update && lake build
+# The patch names the tree's Batteries copy as Tengoku.Std.X (the tree before its seed move); loogle_imports.py sets the names from the cloned tree (Tengoku.Seed.Std.X now), the same
+# step server.py runs before every build of loogle. loogle is built at run time, after the tree is pinned (it imports the tree's built files): not here.
+RUN git apply loogle-tengoku.patch && python3 loogle_imports.py . ../tengoku && cp ../tengoku/lean-toolchain lean-toolchain && lake update
 
 # Python app (the MCP server; torch/sentence-transformers serve moogle)
 WORKDIR ${HOME}/app
