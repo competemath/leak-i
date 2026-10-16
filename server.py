@@ -12,6 +12,7 @@ import nest_asyncio
 import chromadb
 from sentence_transformers import SentenceTransformer
 import logging
+import loogle_imports
 
 nest_asyncio.apply()
 
@@ -370,6 +371,9 @@ async def _tengoku_sync() -> str:
         async with _tree_lock:  # no loogle may be loading while the tree moves
             rc, out = await _run([PIN_SH], TENGOKU_DIR, 3600)
             if rc == 0:
+                moved = loogle_imports.adapt(LOOGLE_DIR, TENGOKU_DIR)  # loogle's imports of the tree's Batteries copy follow the names the tree has
+                if moved:
+                    logger.info(f"loogle imports follow the tree's names ({len(moved)} file(s))")
                 rc2, out2 = await _run(["lake", "build"], LOOGLE_DIR, 3600)
             else:
                 rc2, out2 = 0, ""
@@ -515,6 +519,13 @@ async def _startup():
             return  # _tengoku_sync restarted loogle and started the warm-up
     else:
         logger.info(f"🌳 Tree check: {status} {sha[:12]}")
+        # the tree may be ahead of the loogle that was built (a restart on a tree that moved): make loogle's imports match the tree and build it before it loads
+        moved = loogle_imports.adapt(LOOGLE_DIR, TENGOKU_DIR)
+        if moved:
+            logger.info(f"loogle imports follow the tree's names ({len(moved)} file(s)): building loogle")
+            rc, out = await _run(["lake", "build"], LOOGLE_DIR, 3600)
+            if rc != 0:
+                logger.warning("loogle does not build against the tree: " + out[-500:])
     await loogle_engine.warmup()
 
 
